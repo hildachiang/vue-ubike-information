@@ -86,12 +86,12 @@
     </table>
 	
 	<ul>
-      <li v-if="pageRangeIndex>0" @click="pageRangeIndex-=1" class="pager"><a href="#"> &lt; </a></li>
-      <li class="pager" v-for="n of 10">
+      <li v-if="pageRangeIndex > 0" @click="nextpage(-1)" class="pager"><a href="#"> &lt; </a></li>
+      <li class="pager" v-for="n of maxRangePage">
         <!-- n 從 1 開始計算 -->
-        <a @click="changepage( pageRangeIndex*10+n ,$event)" href="#">{{ pageRangeIndex*10+n }}</a>
+        <a @click="jumppage( pageRangeIndex*10+n ,$event)" href="#">{{ (pageRangeIndex*pageRange)+ n }}</a>
       </li>
-      <li v-if="pageRangeIndex < totalPageCount" @click="pageRangeIndex+=1"  class="pager"><a href="#"> &gt; </a></li>
+      <li v-if="pageRangeIndex < maxRangeIndex" @click="nextpage(1)"  class="pager"><a href="#"> &gt; </a></li>
     </ul>
   </div>
 
@@ -112,9 +112,11 @@
         return {
           uBikeStops: [],
 		  searchName: '',
-		  pageCount : 10,
+		  pageCount : 7, //一頁10筆
+		  pageRange : 10, //分頁一次顯示十頁
 		  currentPage :1,
 		  pageRangeIndex :0
+		  
         }
       },
       computed: {
@@ -131,7 +133,6 @@
             var endIndex = startIndex + this.pageCount;
            	return this.uBikeStopsFilter.slice(startIndex, endIndex);
         },
-
 		totalRecordCount(){
 		    if(this.uBikeStopsFilter.length > 0 )
 			    return this.uBikeStopsFilter.length;
@@ -140,13 +141,27 @@
 		},
 		totalPageCount(){
 		    return Math.ceil(this.totalRecordCount / this.pageCount);
-		}	
+		},
+		maxRangeIndex(){
+		    var mod = this.totalRecordCount %(this.pageCount*this.pageRange);
+		    return Math.floor(this.totalRecordCount/(this.pageCount*this.pageRange))-1 +(mod>0?1:0);
+		},
+		maxRangePage(){
+		    if(this.pageRangeIndex === this.maxRangeIndex)
+			{
+			    return this.totalPageCount % this.pageRange;
+			}
+		    return this.pageRange;
+		}		
       },	  
 	  methods:{
-	    changepage (n,e) {
+	    jumppage (n,e) {
           e.preventDefault();
           this.currentPage = n;
         },
+	    nextpage (n) {
+          this.pageRangeIndex = this.pageRangeIndex+n;
+        },		
 	    sortcolumn(val, col){
 		  if(col==='sbi'){
 		  	return this.uBikeStops.sort((a, b) => (a.sbi - b.sbi) *val );
@@ -159,10 +174,10 @@
       watch: {
         searchName (val, oldValue) {
           this.currentPage = 1;
-		  this.totalPageCount = this.totalRecordCount /10+(this.totalRecordCount%10>0?1:0);
+		  this.totalPageCount = Math.ceil(this.totalRecordCount /10)+(this.totalRecordCount%10>0?1:0);
 		  this.pageRangeIndex = 0;
-		  
-        }},
+        }
+      },
       created () {
         fetch('https://tcgbusfs.blob.core.windows.net/blobyoubike/YouBikeTP.gz')
             .then(res => res.json())

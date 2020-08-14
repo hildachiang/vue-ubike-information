@@ -86,12 +86,12 @@
     </table>
 	
 	<ul>
-      <li v-if="pageRangeIndex > 0" @click="nextpage(-1)" class="pager"><a href="#"> &lt; </a></li>
+      <li v-if="pageRangeIndex > 0" @click="pageRangeIndex-=1" class="pager"><a href="#"> &lt; </a></li>
       <li class="pager" v-for="n of maxRangePage">
         <!-- n 從 1 開始計算 -->
-        <a @click="jumppage( pageRangeIndex*10+n ,$event)" href="#">{{ (pageRangeIndex*pageRange)+ n }}</a>
+        <a @click.prevent="currentPage=pageRangeIndex*10+n" href="#">{{ (pageRangeIndex*pageRange)+ n }}</a>
       </li>
-      <li v-if="pageRangeIndex < maxRangeIndex" @click="nextpage(1)"  class="pager"><a href="#"> &gt; </a></li>
+      <li v-if="pageRangeIndex < maxRangeIndex" @click="pageRangeIndex+=1"  class="pager"><a href="#"> &gt; </a></li>
     </ul>
   </div>
 
@@ -111,32 +111,28 @@
         data() {
             return {
                 uBikeStops: [],
-                searchName: '',
+				searchName: '',
                 pageCount: 10, //一頁10筆
                 pageRange: 10, //分頁一次顯示十頁
                 currentPage: 1,
-                pageRangeIndex: 0
-
+                pageRangeIndex: 0,
+				totalRecordCount: 0
             }
         },
         computed: {
             uBikeStopsFilter() {
-                if (this.searchName.length > 0) {
-                    return this.uBikeStops.filter(d => d.sna.toLowerCase().includes(this.searchName.toLowerCase()));
+                if (this.searchName.length != 0) {
+                    result = this.uBikeStops.filter(d => d.sna.toLowerCase().includes(this.searchName.toLowerCase()));
                 } else {
-                    return this.uBikeStops;
+                    result = this.uBikeStops;
                 }
+                this.currentPage = 1;
+                this.pageRangeIndex = 0;
+                this.totalRecordCount = result.length;
+                return result;
             },
             uBikeStopsShow() {
-                var startIndex = (this.currentPage - 1) * this.pageCount;
-                var endIndex = startIndex + this.pageCount;
-                return this.uBikeStopsFilter.slice(startIndex, endIndex);
-            },
-            totalRecordCount() {
-                if (this.uBikeStopsFilter.length > 0)
-                    return this.uBikeStopsFilter.length;
-                else
-                    return 0;
+                return this.uBikeStopsFilter.slice((this.currentPage - 1) * this.pageCount, (this.currentPage - 1) * this.pageCount + this.pageCount);
             },
             totalPageCount() {
                 return Math.ceil(this.totalRecordCount / this.pageCount);
@@ -146,33 +142,20 @@
                 return Math.floor(this.totalRecordCount / (this.pageCount * this.pageRange)) - 1 + (mod > 0 ? 1 : 0);
             },
             maxRangePage() {
-                if (this.pageRangeIndex === this.maxRangeIndex) {
-                    return this.totalPageCount % this.pageRange;
+                var mod = this.totalPageCount % this.pageRange;
+				if (this.totalRecordCount === 0)
+				{
+				    return 0;
+				}
+                else if (this.pageRangeIndex === this.maxRangeIndex && mod != 0) {
+                    return mod;
                 }
                 return this.pageRange;
             }
         },
         methods: {
-            jumppage(n, e) {
-                e.preventDefault();
-                this.currentPage = n;
-            },
-            nextpage(n) {
-                this.pageRangeIndex = this.pageRangeIndex + n;
-            },
             sortcolumn(val, col) {
-                if (col === 'sbi') {
-                    return this.uBikeStops.sort((a, b) => (a.sbi - b.sbi) * val);
-                } else if (col === 'tot') {
-                    return this.uBikeStops.sort((a, b) => (a.tot - b.tot) * val);
-                }
-            }
-        },
-        watch: {
-            searchName(val, oldValue) {
-                this.currentPage = 1;
-                this.totalPageCount = Math.ceil(this.totalRecordCount / 10) + (this.totalRecordCount % 10 > 0 ? 1 : 0);
-                this.pageRangeIndex = 0;
+                return this.uBikeStops.sort((a, b) => (a[col] - b[col]) * val);
             }
         },
         created() {

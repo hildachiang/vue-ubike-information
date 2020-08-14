@@ -1,22 +1,60 @@
 <!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width">
-  <title>YouBike 臺北市公共自行車即時資訊</title>
+<html lang="en">
 
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>練習 13： YouBike 臺北市公共自行車即時資訊</title>
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css"
+    integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.css">
 
   <style>
-    body{ padding: 1em;  }
+    body {
+      padding: 1em;
+	  font-size: 1.33rem;
+    }
+	
+	.pager {
+       float: left;
+       display: block;
+       width: 20px;
+       height: 20px;
+       text-align: center;
+       line-height: 20px;
+       margin-right: 5px;
+       padding: 5px;
+       border: 1px solid #aaa;
+	   box-sizing: content-box;
+    }
+
+    .pager a {
+      text-decoration: none;
+    }
   </style>
 
-</head>
-<body>
+  <script src="https://unpkg.com/vue@next"></script>
 
-  <h1>YouBike 臺北市公共自行車即時資訊</h1>
+</head>
+
+<body>
+  <p>
+    練習 13： YouBike 臺北市公共自行車即時資訊 <br>
+    完成下列表格，並加入:
+    1. 站點名稱搜尋
+    2. 目前可用車輛 / 總停車格 的排序功能
+  </p>
+
+  <hr>
 
   <div id="app">
+
+    <p>
+      站點名稱搜尋: <input type="text" v-model.trim="searchName">
+    </p>
 
     <table class="table table-striped">
       <thead>
@@ -24,13 +62,19 @@
           <th>#</th>
           <th>場站名稱</th>
           <th>場站區域</th>
-          <th>目前可用車輛</th>
-          <th>總停車格</th>
+          <th>目前可用車輛
+            <i @click="sortcolumn(1,'sbi')" class="fa fa-sort-asc" aria-hidden="true"></i>
+            <i @click="sortcolumn(-1,'sbi')" class="fa fa-sort-desc" aria-hidden="true"></i>
+          </th>
+          <th>總停車格
+            <i @click="sortcolumn(1,'tot')" class="fa fa-sort-asc" aria-hidden="true"></i>
+            <i @click="sortcolumn(-1,'tot')" class="fa fa-sort-desc" aria-hidden="true"></i>
+          </th>
           <th>資料更新時間</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="s in ubikeStops">
+        <tr v-for="s in uBikeStopsShow">
           <td>{{ s.sno }}</td>
           <td>{{ s.sna }}</td>
           <td>{{ s.sarea }}</td>
@@ -39,14 +83,97 @@
           <td>{{ s.mday | timeFormat }}</td>
         </tr>
       </tbody>
-
     </table>
-
+	
+	<ul>
+      <li v-if="pageRangeIndex>0" @click="pageRangeIndex-=1" class="pager"><a href="#"> &lt; </a></li>
+      <li class="pager" v-for="n of 10">
+        <!-- n 從 1 開始計算 -->
+        <a @click="changepage( pageRangeIndex*10+n ,$event)" href="#">{{ pageRangeIndex*10+n }}</a>
+      </li>
+      <li v-if="pageRangeIndex < totalPageCount" @click="pageRangeIndex+=1"  class="pager"><a href="#"> &gt; </a></li>
+    </ul>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.4.2/vue.js"></script>
-  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-  <script src="scripts.js"></script>
+<!-- v-for="(s, idx) of sales"-->
+  <script>
+
+    // 欄位說明請參照:
+    // http://data.taipei/opendata/datalist/datasetMeta?oid=8ef1626a-892a-4218-8344-f7ac46e1aa48
+    // 半成品參考: https://kuro.tw/vue-ubike-information/
+
+    // sno：站點代號、 sna：場站名稱(中文)、 tot：場站總停車格、
+    // sbi：場站目前車輛數量、 sarea：場站區域(中文)、 mday：資料更新時間、
+    // lat：緯度、 lng：經度、 ar：地(中文)、 sareaen：場站區域(英文)、
+    // snaen：場站名稱(英文)、 aren：地址(英文)、 bemp：空位數量、 act：全站禁用狀態
+
+    const app = Vue.createApp({
+      data () {
+        return {
+          uBikeStops: [],
+		  searchName: '',
+		  pageCount : 10,
+		  currentPage :1,
+		  pageRangeIndex :0
+        }
+      },
+      computed: {
+	    uBikeStopsFilter(){
+			if( this.searchName.length > 0) {
+           	   return this.uBikeStops.filter( d => d.sna.toLowerCase().includes(this.searchName.toLowerCase()));
+            }
+            else {
+              return this.uBikeStops;
+            }
+		},
+		uBikeStopsShow()  {
+            var startIndex = (this.currentPage - 1) * this.pageCount;
+            var endIndex = startIndex + this.pageCount;
+           	return this.uBikeStopsFilter.slice(startIndex, endIndex);
+        },
+
+		totalRecordCount(){
+		    if(this.uBikeStopsFilter.length > 0 )
+			    return this.uBikeStopsFilter.length;
+			else
+			    return 0;
+		},
+		totalPageCount(){
+		    return Math.ceil(this.totalRecordCount / this.pageCount);
+		}	
+      },	  
+	  methods:{
+	    changepage (n,e) {
+          e.preventDefault();
+          this.currentPage = n;
+        },
+	    sortcolumn(val, col){
+		  if(col==='sbi'){
+		  	return this.uBikeStops.sort((a, b) => (a.sbi - b.sbi) *val );
+		  }
+	      else if(col==='tot'){     
+	        return this.uBikeStops.sort((a, b) => (a.tot - b.tot) *val );
+		  }
+		}		
+	  },
+      watch: {
+        searchName (val, oldValue) {
+          this.currentPage = 1;
+		  this.totalPageCount = this.totalRecordCount /10+(this.totalRecordCount%10>0?1:0);
+		  this.pageRangeIndex = 0;
+		  
+        }},
+      created () {
+        fetch('https://tcgbusfs.blob.core.windows.net/blobyoubike/YouBikeTP.gz')
+            .then(res => res.json())
+            .then(json => {
+              const stops = Object.keys(json.retVal).map(key => json.retVal[key]);
+              this.uBikeStops = stops;
+            });
+      }
+    }).mount('#app');
+  </script>
 
 </body>
+
 </html>

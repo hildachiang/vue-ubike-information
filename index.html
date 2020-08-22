@@ -1,60 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>練習 13： YouBike 臺北市公共自行車即時資訊</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>YouBike 臺北市公共自行車即時資訊</title>
 
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css"
-    integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
 
   <style>
-    body {
-      padding: 1em;
-	  font-size: 1.33rem;
-    }
-	
-	.pager {
-       float: left;
-       display: block;
-       width: 20px;
-       height: 20px;
-       text-align: center;
-       line-height: 20px;
-       margin-right: 5px;
-       padding: 5px;
-       border: 1px solid #aaa;
-	   box-sizing: content-box;
-    }
-
-    .pager a {
-      text-decoration: none;
-    }
+    body{ padding: 1em;  }
   </style>
 
-  <script src="https://unpkg.com/vue@next"></script>
-
 </head>
-
 <body>
-  <p>
-    練習 13： YouBike 臺北市公共自行車即時資訊 <br>
-    完成下列表格，並加入:
-    1. 站點名稱搜尋
-    2. 目前可用車輛 / 總停車格 的排序功能
-  </p>
 
-  <hr>
+  <h1>YouBike 臺北市公共自行車即時資訊</h1>
 
   <div id="app">
-
-    <p>
-      站點名稱搜尋: <input type="text" v-model.trim="searchName">
-    </p>
 
     <table class="table table-striped">
       <thead>
@@ -62,113 +24,28 @@
           <th>#</th>
           <th>場站名稱</th>
           <th>場站區域</th>
-          <th>目前可用車輛
-            <i @click="sortcolumn(1,'sbi')" class="fa fa-sort-asc" aria-hidden="true"></i>
-            <i @click="sortcolumn(-1,'sbi')" class="fa fa-sort-desc" aria-hidden="true"></i>
-          </th>
-          <th>總停車格
-            <i @click="sortcolumn(1,'tot')" class="fa fa-sort-asc" aria-hidden="true"></i>
-            <i @click="sortcolumn(-1,'tot')" class="fa fa-sort-desc" aria-hidden="true"></i>
-          </th>
+          <th>目前可用車輛</th>
+          <th>總停車格</th>
           <th>資料更新時間</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="s in uBikeStopsShow">
+        <tr v-for="s in ubikeStops">
           <td>{{ s.sno }}</td>
           <td>{{ s.sna }}</td>
           <td>{{ s.sarea }}</td>
           <td>{{ s.sbi }}</td>
           <td>{{ s.tot }}</td>
-          <td>{{ s.mday | timeFormat }}</td>
+          <td>{{ timeFormat(s.mday) }}</td>
         </tr>
       </tbody>
+
     </table>
-	
-	<ul>
-      <li v-if="pageRangeIndex > 0" @click="pageRangeIndex-=1" class="pager"><a href="#"> &lt; </a></li>
-      <li class="pager" v-for="n of maxRangePage">
-        <!-- n 從 1 開始計算 -->
-        <a @click.prevent="currentPage=pageRangeIndex*10+n" href="#">{{ (pageRangeIndex*pageRange)+ n }}</a>
-      </li>
-      <li v-if="pageRangeIndex < maxRangeIndex" @click="pageRangeIndex+=1"  class="pager"><a href="#"> &gt; </a></li>
-    </ul>
+
   </div>
 
-<!-- v-for="(s, idx) of sales"-->
-  <script>
-
-    // 欄位說明請參照:
-    // http://data.taipei/opendata/datalist/datasetMeta?oid=8ef1626a-892a-4218-8344-f7ac46e1aa48
-    // 半成品參考: https://kuro.tw/vue-ubike-information/
-
-    // sno：站點代號、 sna：場站名稱(中文)、 tot：場站總停車格、
-    // sbi：場站目前車輛數量、 sarea：場站區域(中文)、 mday：資料更新時間、
-    // lat：緯度、 lng：經度、 ar：地(中文)、 sareaen：場站區域(英文)、
-    // snaen：場站名稱(英文)、 aren：地址(英文)、 bemp：空位數量、 act：全站禁用狀態
-
-    const app = Vue.createApp({
-        data() {
-            return {
-                uBikeStops: [],
-				searchName: '',
-                pageCount: 10, //一頁10筆
-                pageRange: 10, //分頁一次顯示十頁
-                currentPage: 1,
-                pageRangeIndex: 0,
-				totalRecordCount: 0
-            }
-        },
-        computed: {
-            uBikeStopsFilter() {
-                if (this.searchName.length != 0) {
-                    result = this.uBikeStops.filter(d => d.sna.toLowerCase().includes(this.searchName.toLowerCase()));
-                } else {
-                    result = this.uBikeStops;
-                }
-                this.currentPage = 1;
-                this.pageRangeIndex = 0;
-                this.totalRecordCount = result.length;
-                return result;
-            },
-            uBikeStopsShow() {
-                return this.uBikeStopsFilter.slice((this.currentPage - 1) * this.pageCount, (this.currentPage - 1) * this.pageCount + this.pageCount);
-            },
-            totalPageCount() {
-                return Math.ceil(this.totalRecordCount / this.pageCount);
-            },
-            maxRangeIndex() {
-                var mod = this.totalRecordCount % (this.pageCount * this.pageRange);
-                return Math.floor(this.totalRecordCount / (this.pageCount * this.pageRange)) - 1 + (mod > 0 ? 1 : 0);
-            },
-            maxRangePage() {
-                var mod = this.totalPageCount % this.pageRange;
-				if (this.totalRecordCount === 0)
-				{
-				    return 0;
-				}
-                else if (this.pageRangeIndex === this.maxRangeIndex && mod != 0) {
-                    return mod;
-                }
-                return this.pageRange;
-            }
-        },
-        methods: {
-            sortcolumn(val, col) {
-                return this.uBikeStops.sort((a, b) => (a[col] - b[col]) * val);
-            }
-        },
-        created() {
-            fetch('https://tcgbusfs.blob.core.windows.net/blobyoubike/YouBikeTP.gz')
-                .then(res => res.json())
-                .then(json => {
-                    const stops = Object.keys(json.retVal).map(key => json.retVal[key]);
-                    this.uBikeStops = stops;
-                });
-        }
-    }).mount('#app');
-  </script>
+  <script src="https://unpkg.com/vue@next"></script>
+  <script src="./scripts.js?v=2020081401"></script>
 
 </body>
-
 </html>
